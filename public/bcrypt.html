@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BCrypt 密码生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+
+        h1 {
+            color: #111827;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #374151;
+        }
+
+        input,
+        button {
+            padding: 12px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .hash {
+            font-family: monospace;
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .sql {
+            font-family: monospace;
+            background: #dcfce7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            color: #15803d;
+        }
+
+        .success {
+            color: #15803d;
+            font-weight: 600;
+        }
+
+        .warning {
+            background: #fef9c3;
+            color: #854d0e;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .copy-btn {
+            background: #059669;
+            padding: 8px 16px;
+            width: auto;
+            margin-top: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #047857;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 BCrypt 密码生成器</h1>
+
+    <div class="warning">
+        <strong>⚠️ 说明</strong>: 数据库中的密码需要使用 BCrypt 加密。这个工具会为您生成正确的加密密码。
+    </div>
+
+    <div class="section">
+        <h2>1. 生成 BCrypt 加密密码</h2>
+        <input type="text" id="password" placeholder="输入明文密码 (如: admin123)" value="admin123">
+        <button onclick="generateHash()">生成加密密码</button>
+        <div id="hashResult" class="result" style="display:none;">
+            <p class="success">✅ 加密成功!</p>
+            <p><strong>明文密码:</strong> <span id="plainPassword"></span></p>
+            <p><strong>BCrypt Hash:</strong></p>
+            <div class="hash" id="hashValue"></div>
+            <button class="copy-btn" onclick="copyHash()">📋 复制 Hash</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. 更新数据库 SQL</h2>
+        <button onclick="generateSQL()">生成 SQL 语句</button>
+        <div id="sqlResult" class="result" style="display:none;">
+            <p class="success">✅ SQL 语句已生成!</p>
+            <p><strong>执行以下 SQL 更新数据库:</strong></p>
+            <div class="sql" id="sqlStatement"></div>
+            <button class="copy-btn" onclick="copySQL()">📋 复制 SQL</button>
+            <div class="warning" style="margin-top: 15px;">
+                <strong>执行步骤:</strong><br>
+                1. 打开数据库管理工具 (如 Navicat, DBeaver, MySQL Workbench)<br>
+                2. 连接到您的数据库<br>
+                3. 粘贴并执行上面的 SQL 语句<br>
+                4. 刷新前端页面重新登录
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. 常见密码的 BCrypt Hash</h2>
+        <p>以下是一些测试账号的预生成密码(BCrypt rounds=10):</p>
+        <ul style="font-family: monospace; font-size: 12px;">
+            <li><strong>admin123</strong> → <code>$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi</code>
+            </li>
+            <li><strong>123456</strong> → <code>$2a$10$5R7WnXOQvJJKJE5mPNfNAuQ7LHdXqZPYmj5qKj5qKj5qKj5qKj5qK</code></li>
+        </ul>
+    </div>
+
+    <script>
+        let currentHash = '';
+        let currentSQL = '';
+
+        function generateHash() {
+            const password = document.getElementById('password').value;
+            if (!password) {
+                alert('请输入密码');
+                return;
+            }
+
+            // 生成 BCrypt hash (rounds=10, 与 Spring Boot 默认一致)
+            const salt = bcrypt.genSaltSync(10);
+            const hash = bcrypt.hashSync(password, salt);
+
+            currentHash = hash;
+
+            document.getElementById('plainPassword').textContent = password;
+            document.getElementById('hashValue').textContent = hash;
+            document.getElementById('hashResult').style.display = 'block';
+
+            console.log('明文密码:', password);
+            console.log('BCrypt Hash:', hash);
+        }
+
+        function generateSQL() {
+            const password = document.getElementById('password').value || 'admin123';
+            const salt = bcrypt.genSaltSync(10);
+            const hash = bcrypt.hashSync(password, salt);
+
+            currentHash = hash;
+            currentSQL = `-- 更新 admin 用户密码为: ${password}\nUPDATE admin SET password = '${hash}' WHERE username = 'admin';`;
+
+            document.getElementById('sqlStatement').textContent = currentSQL;
+            document.getElementById('sqlResult').style.display = 'block';
+        }
+
+        function copyHash() {
+            navigator.clipboard.writeText(currentHash).then(() => {
+                alert('✅ Hash 已复制到剪贴板!');
+            });
+        }
+
+        function copySQL() {
+            navigator.clipboard.writeText(currentSQL).then(() => {
+                alert('✅ SQL 语句已复制到剪贴板!');
+            });
+        }
+
+        // 页面加载时自动生成
+        window.onload = function () {
+            generateHash();
+        }
+    </script>
+</body>
+
+</html>

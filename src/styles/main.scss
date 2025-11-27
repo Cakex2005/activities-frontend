@@ -1,0 +1,48 @@
+/* Global Styles based on User Design */
+:root {
+  --bg-color: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-placeholder: #9ca3af;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --topbar-bg: #111827;
+  --topbar-text: #f9fafb;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+  --border-color: #e5e7eb;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utility Classes */
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  padding: 14px 16px;
+  box-sizing: border-box;
+}
+
+/* Tag Styles */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.tag-green { background: #dcfce7; color: #15803d; }
+.tag-gray { background: #e5e7eb; color: #4b5563; }
+.tag-yellow { background: #fef9c3; color: #854d0e; }
+.tag-red { background: #fee2e2; color: #b91c1c; }
+
+/* Element Plus Overrides to match design */
+:root {
+  --el-color-primary: var(--color-primary);
+}

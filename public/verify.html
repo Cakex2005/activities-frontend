@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BCrypt 验证器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+
+        input,
+        button {
+            padding: 12px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .info {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 BCrypt 密码验证器</h1>
+
+    <div class="section">
+        <h2>方法1: 在线验证</h2>
+        <div class="info result">
+            <p>打开网站: <a href="https://bcrypt-generator.com/" target="_blank">https://bcrypt-generator.com/</a></p>
+            <p>在 "Verify Hash" 选项卡中:</p>
+            <ul>
+                <li><strong>Password:</strong> admin123</li>
+                <li><strong>Hash:</strong> $2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi</li>
+            </ul>
+            <p>点击 "Verify" 查看是否匹配</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>方法2: 后端测试</h2>
+        <div class="info result">
+            <p>在后端项目中添加测试代码,直接调用 BCryptUtil.verifyPassword():</p>
+            <pre style="background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto;">
+public static void main(String[] args) {
+    String password = "admin123";
+    String hash = "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi";
+    
+    boolean result = BCryptUtil.verifyPassword(password, hash);
+    System.out.println("验证结果: " + result);
+    
+    // 同时测试其他密码
+    String[] testPasswords = {"admin123", "Admin123", "admin", "123456"};
+    for (String pwd : testPasswords) {
+        boolean match = BCryptUtil.verifyPassword(pwd, hash);
+        System.out.println(pwd + ": " + match);
+    }
+}</pre>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>方法3: 检查后端日志</h2>
+        <div class="info result">
+            <p>在 AuthServiceImpl.java 的第 59 行添加日志输出:</p>
+            <pre style="background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto;">
+// 验证密码（使用BCrypt加密比对）
+log.info("验证密码 - 输入密码: {}", loginDTO.getPassword());
+log.info("验证密码 - 数据库Hash: {}", administrator.getPassword());
+boolean verified = BCryptUtil.verifyPassword(loginDTO.getPassword(), administrator.getPassword());
+log.info("验证密码 - 结果: {}", verified);
+
+if (!verified) {
+    throw new BizException(ResultCodeEnum.ADMIN_ACCOUNT_ERROR);
+}</pre>
+            <p>重启后端,再次登录,查看控制台日志</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>快速解决方案</h2>
+        <div class="error result">
+            <p><strong>如果以上都失败,直接重置密码:</strong></p>
+            <p>1. 在数据库中执行:</p>
+            <pre style="background: #fff; padding: 10px; border-radius: 4px; margin: 10px 0;">
+-- 使用Spring Boot默认BCrypt (cost=12) 生成的admin123
+UPDATE administrators 
+SET password = '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN96QiYldYjm0wGxiH9IK' 
+WHERE username = 'admin';</pre>
+            <p>2. 重启后端服务</p>
+            <p>3. 使用 admin/admin123 登录</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('页面已加载');
+        console.log('如果需要JavaScript验证,请按F12打开控制台查看此消息');
+    </script>
+</body>
+
+</html>

@@ -32,10 +32,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { getToken } from '@/utils/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -43,9 +44,16 @@ const userStore = useUserStore()
 const username = computed(() => userStore.userInfo?.realName || userStore.userInfo?.username || '管理员')
 const userInitial = computed(() => username.value.charAt(0))
 
+// 监听token变化,如果token为空则跳转登录页
+watch(() => getToken(), (newToken) => {
+  if (!newToken && router.currentRoute.value.path !== '/login') {
+    router.replace('/login')
+  }
+})
+
 onMounted(async () => {
   // 获取用户信息
-  if (!userStore.userInfo) {
+  if (!userStore.userInfo && getToken()) {
     try {
       await userStore.getUserInfo()
     } catch (error) {
@@ -63,7 +71,7 @@ const handleCommand = async (command) => {
         type: 'warning'
       })
       await userStore.userLogout()
-      router.push('/login')
+      // 登出后会自动跳转(watch会监听到token变化)
     } catch (error) {
       // 用户取消
     }

@@ -74,15 +74,24 @@ export function getActivityList(params) {
 }
 
 /**
- * 获取活动统计信息(根据状态聚合)
- * 注意: 需要在前端自行聚合列表数据或使用其他统计接口
+ * 更新活动状态
+ */
+export function updateActivityStatus(data) {
+    return request({
+        url: '/activity/status',
+        method: 'put',
+        data
+    })
+}
+
+
+/**
+ * 获取活动统计信息(前端聚合)
  */
 export function getActivityStats() {
-    // 文档中没有 /activity/stats 接口
-    // 需要通过查询列表并聚合数据来实现统计
     return request({
         url: '/activity/list',
         method: 'get',
-        params: { pageSize: 1000 } // 获取全部数据用于统计
+        params: { pageNum: 1, pageSize: 1000 }
     })
 }

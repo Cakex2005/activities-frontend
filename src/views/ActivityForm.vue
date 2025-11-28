@@ -221,9 +221,18 @@ onMounted(async () => {
 
 const loadActivityTypes = async () => {
   try {
-    const res = await getActivityTypes()
+    // 传递较大的 pageSize 以获取所有类型
+    const res = await getActivityTypes({ pageNum: 1, pageSize: 100 })
     if (res.code === 200) {
-      activityTypes.value = res.data || []
+      // 后端返回的是 PageInfo 对象，列表数据在 list 字段中
+      if (res.data && Array.isArray(res.data.list)) {
+        activityTypes.value = res.data.list
+      } else if (Array.isArray(res.data)) {
+        // 兼容直接返回数组的情况
+        activityTypes.value = res.data
+      } else {
+        activityTypes.value = []
+      }
     }
   } catch (error) {
     console.error('加载活动类型失败:', error)

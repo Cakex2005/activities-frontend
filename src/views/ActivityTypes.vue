@@ -47,6 +47,9 @@
         <el-form-item label="描述" prop="description">
           <el-input v-model="dialogForm.description" type="textarea" :rows="3" />
         </el-form-item>
+        <el-form-item label="排序顺序" prop="sortOrder">
+          <el-input-number v-model="dialogForm.sortOrder" :min="0" :max="999" placeholder="数字越小越靠前" />
+        </el-form-item>
         <el-form-item label="状态" prop="isEnabled">
           <el-radio-group v-model="dialogForm.isEnabled">
             <el-radio :label="1">启用</el-radio>
@@ -85,6 +88,7 @@ const dialogForm = reactive({
   typeCode: '',
   typeName: '',
   description: '',
+  sortOrder: 0,
   isEnabled: 1
 })
 
@@ -95,6 +99,9 @@ const rules = {
   ],
   typeName: [
     { required: true, message: '请输入类型名称', trigger: 'blur' }
+  ],
+  sortOrder: [
+    { required: true, message: '请输入排序顺序', trigger: 'blur' }
   ],
   isEnabled: [
     { required: true, message: '请选择状态', trigger: 'change' }
@@ -128,6 +135,7 @@ const showDialog = (row) => {
       typeCode: '',
       typeName: '',
       description: '',
+      sortOrder: 0,
       isEnabled: 1
     })
   }
@@ -142,8 +150,14 @@ const handleSubmit = async () => {
     
     submitting.value = true
     try {
+      // 强制补充 isDeleted 字段，防止后端 NPE
+      const submitData = {
+        ...dialogForm,
+        isDeleted: dialogForm.isDeleted ?? 0
+      }
+      
       const apiMethod = dialogForm.id ? updateActivityType : createActivityType
-      const res = await apiMethod(dialogForm)
+      const res = await apiMethod(submitData)
       
       if (res.code === 200) {
         ElMessage.success(dialogForm.id ? '更新成功' : '创建成功')

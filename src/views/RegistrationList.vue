@@ -147,7 +147,8 @@ const loadRegistrations = async () => {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
       activityId: activityId.value || undefined,
-      keyword: searchQuery.value || undefined,
+      studentName: searchQuery.value || undefined,
+      studentPhone: searchQuery.value || undefined,
       registrationStatus: statusFilter.value || undefined,
       checkInStatus: checkInFilter.value || undefined
     }
@@ -156,9 +157,16 @@ const loadRegistrations = async () => {
     if (res.code === 200) {
       registrations.value = res.data.list || []
       total.value = res.data.total || 0
+    } else {
+      registrations.value = []
+      total.value = 0
+      ElMessage.error(res.message || '加载报名列表失败')
     }
   } catch (error) {
     console.error('加载报名列表失败:', error)
+    registrations.value = []
+    total.value = 0
+    ElMessage.error('加载报名列表失败')
   } finally {
     loading.value = false
   }
@@ -178,7 +186,8 @@ const handleCheckIn = async (row) => {
     })
     
     const res = await checkInStudent({
-      registrationId: row.id
+      activityId: row.activityId,
+      studentPhone: row.studentPhone
     })
     
     if (res.code === 200) {

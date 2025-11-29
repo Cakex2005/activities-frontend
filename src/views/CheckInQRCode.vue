@@ -122,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { 
@@ -131,6 +131,7 @@ import {
 } from '@element-plus/icons-vue'
 import { generateCheckInQRCode, getRegistrationStats } from '@/api/registration'
 import { getActivityDetail } from '@/api/activity'
+import QRCode from 'qrcode'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,6 +148,10 @@ const qrCodeData = ref({
   checkInToken: '',
   expiresIn: 1800
 })
+
+// H5访问地址 - 从后端自动获取
+const h5BaseUrl = ref('')
+const backendIp = ref('')
 
 const remainingTime = ref(1800)
 const isFullscreen = ref(false)
@@ -165,7 +170,7 @@ let statsTimer = null
 
 onMounted(async () => {
   await loadActivityInfo()
-  await generateQRCode()
+  await generateQRCode()  // 生成二维码时会自动获取IP
   startStatsPolling()
 })
 
@@ -192,15 +197,64 @@ const loadActivityInfo = async () => {
 const generateQRCode = async () => {
   loading.value = true
   try {
-    // 传递H5前端地址作为baseUrl
-    const res = await generateCheckInQRCode(activityId, 'http://localhost:5174')
+    // 1. 调用后端接口获取 Token（不传baseUrl，让后端使用默认值）
+    const res = await generateCheckInQRCode(activityId, null)
     
-    if (res.code === 200) {
-      qrCodeData.value = res.data
-      remainingTime.value = res.data.expiresIn
+    if (res.code === 200 && res.data.qrContent) {
+      // 2. 从后端返回的 qrContent 中提取服务器地址
+      // 后端返回格式：http://192.168.1.100:8080/h5/checkin?token=xxx
+      const urlMatch = res.data.qrContent.match(/^(https?:\/\/[^\/]+)/)
       
-      startCountdown()
-      ElMessage.success('二维码生成成功')
+      if (urlMatch && urlMatch[1]) {
+        // 提取到的是完整的后端地址，例如: http://192.168.1.100:8080
+        const backendBaseUrl = urlMatch[1]
+        
+        // 从后端地址中提取IP和端口
+        const ipPortMatch = backendBaseUrl.match(/https?:\/\/([^:]+):?(\d*)/)
+        if (ipPortMatch) {
+          backendIp.value = ipPortMatch[1]  // IP地址
+          const backendPort = ipPortMatch[2] || '8080'  // 后端端口
+          
+          // 构造H5访问地址（H5端口是5174）
+          h5BaseUrl.value = `http://${backendIp.value}:5174`
+          
+          console.log('从后端获取到IP:', backendIp.value)
+          console.log('后端地址:', backendBaseUrl)
+          console.log('H5地址:', h5BaseUrl.value)
+          
+          // 3. 重新构造二维码URL（使用H5地址 + token）
+          const targetUrl = `${h5BaseUrl.value}/#/checkin?token=${res.data.checkInToken}`
+          
+          console.log('生成二维码URL:', targetUrl)
+          
+          // 4. 使用前端库生成二维码图片
+          const qrImage = await QRCode.toDataURL(targetUrl, {
+            width: 400,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#ffffff'
+            }
+          })
+          
+          qrCodeData.value = {
+            ...res.data,
+            qrCodeImage: qrImage,
+            qrContent: targetUrl
+          }
+          
+          remainingTime.value = res.data.expiresIn
+          startCountdown()
+          
+          if (!countdownTimer) {
+            ElMessage.success('二维码生成成功')
+          }
+        } else {
+          throw new Error('无法解析后端地址')
+        }
+      } else {
+        throw new Error('后端未返回有效的URL')
+      }
     }
   } catch (error) {
     console.error('生成二维码失败:', error)
@@ -375,6 +429,8 @@ const goBack = () => {
     }
   }
 }
+
+
 
 // ==================== 二维码展示 ====================
 

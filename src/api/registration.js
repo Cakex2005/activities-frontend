@@ -46,12 +46,18 @@ export function cancelRegistration(registrationId) {
 /**
  * 生成签到二维码（管理端展示）
  */
-export function generateCheckInQRCode(activityId, baseUrl = '') {
-    return request({
-        url: `/registration/${activityId}/qrcode`,
-        method: 'get',
-        params: baseUrl ? { baseUrl } : {}
-    })
+export function generateCheckInQRCode(activityId, baseUrl) {
+  const params = {}
+  // 只有明确传入baseUrl时才添加参数，否则让后端使用默认值
+  if (baseUrl) {
+    params.baseUrl = baseUrl
+  }
+  
+  return request({
+    url: `/registration/${activityId}/qrcode`,
+    method: 'get',
+    params
+  })
 }
 
 /**

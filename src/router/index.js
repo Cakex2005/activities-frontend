@@ -43,6 +43,12 @@ const router = createRouter({
             name: 'registrations',
             component: () => import('@/views/RegistrationList.vue'),
             meta: { title: '报名管理', requiresAuth: true }
+        },
+        {
+            path: '/activities/:id/checkin-qrcode',
+            name: 'checkin-qrcode',
+            component: () => import('@/views/CheckInQRCode.vue'),
+            meta: { title: '签到二维码', requiresAuth: true }
         }
     ]
 })

@@ -126,11 +126,71 @@
         </el-form-item>
 
         <el-form-item label="活动海报" prop="posterUrl">
-          <el-input v-model="form.posterUrl" placeholder="请输入海报URL或上传图片" />
-          <div style="margin-top: 8px; color: #6b7280; font-size: 12px;">
-            提示: 可以输入图片URL,或通过文件上传功能上传
+          <div class="poster-upload-container">
+            <!-- 方式一: 手动输入URL -->
+            <div class="url-input-section">
+              <el-input 
+                v-model="form.posterUrl" 
+                placeholder="可手动输入图片URL（支持外部链接）" 
+                clearable
+              >
+                <template #prepend>
+                  <el-icon><Link /></el-icon>
+                </template>
+              </el-input>
+            </div>
+
+            <!-- 方式二: 上传图片文件 -->
+            <div class="upload-section">
+              <el-upload
+                class="poster-uploader"
+                :auto-upload="false"
+                :show-file-list="false"
+                :on-change="handleFileChange"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                drag
+              >
+                <div v-if="!form.posterUrl" class="upload-placeholder">
+                  <el-icon class="upload-icon" :size="50"><Plus /></el-icon>
+                  <div class="upload-text">点击或拖拽图片到此处上传</div>
+                  <div class="upload-hint">支持 jpg/png/gif/webp 格式，最大 50MB</div>
+                </div>
+                <div v-else class="image-preview">
+                  <img :src="form.posterUrl" alt="海报预览" />
+                  <div class="image-mask">
+                    <el-icon :size="20" @click.stop="previewPoster"><ZoomIn /></el-icon>
+                    <el-icon :size="20" @click.stop="removePoster"><Delete /></el-icon>
+                  </div>
+                </div>
+              </el-upload>
+              
+              <!-- 上传进度 -->
+              <el-progress 
+                v-if="uploading" 
+                :percentage="uploadProgress" 
+                :status="uploadProgress === 100 ? 'success' : undefined"
+                style="margin-top: 12px;"
+              />
+            </div>
+
+            <!-- 操作按钮 -->
+            <div v-if="form.posterUrl" class="poster-actions">
+              <el-button size="small" @click="previewPoster">
+                <el-icon><ZoomIn /></el-icon>
+                预览
+              </el-button>
+              <el-button size="small" type="danger" @click="removePoster">
+                <el-icon><Delete /></el-icon>
+                删除
+              </el-button>
+            </div>
           </div>
         </el-form-item>
+
+        <!-- 图片预览对话框 -->
+        <el-dialog v-model="showPreview" title="海报预览" width="60%">
+          <img :src="form.posterUrl" alt="海报" style="width: 100%; display: block;" />
+        </el-dialog>
 
         <el-form-item>
           <el-button type="primary" :loading="submitting" @click="handleSubmit">
@@ -146,9 +206,11 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Link, ZoomIn, Delete } from '@element-plus/icons-vue'
 import { getActivityTypes } from '@/api/activityType'
 import { createActivity, updateActivity, getActivityDetail } from '@/api/activity'
+import { uploadFile } from '@/api/file'
 
 const route = useRoute()
 const router = useRouter()
@@ -156,6 +218,11 @@ const router = useRouter()
 const formRef = ref(null)
 const submitting = ref(false)
 const activityTypes = ref([])
+
+// 海报上传相关状态
+const uploading = ref(false)
+const uploadProgress = ref(0)
+const showPreview = ref(false)
 
 const isEdit = computed(() => !!route.params.id)
 
@@ -277,6 +344,109 @@ const handleSubmit = async () => {
 const handleCancel = () => {
   router.back()
 }
+
+// ==================== 海报上传相关方法 ====================
+
+/**
+ * 处理文件选择变化
+ */
+const handleFileChange = async (file) => {
+  const rawFile = file.raw
+  
+  // 文件验证
+  if (!validateFile(rawFile)) {
+    return
+  }
+  
+  // 开始上传
+  await uploadPosterFile(rawFile)
+}
+
+/**
+ * 验证文件类型和大小
+ */
+const validateFile = (file) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+  const maxSize = 50 * 1024 * 1024 // 50MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('只支持 jpg、png、gif、webp 格式的图片')
+    return false
+  }
+  
+  if (file.size > maxSize) {
+    ElMessage.error('图片大小不能超过 50MB')
+    return false
+  }
+  
+  return true
+}
+
+/**
+ * 上传海报文件到服务器
+ */
+const uploadPosterFile = async (file) => {
+  try {
+    uploading.value = true
+    uploadProgress.value = 0
+    
+    // 模拟上传进度
+    const progressInterval = setInterval(() => {
+      if (uploadProgress.value < 90) {
+        uploadProgress.value += 10
+      }
+    }, 100)
+    
+    // 调用上传API (purpose 设置为 activity_poster)
+    const res = await uploadFile(file, 'activity_poster')
+    
+    clearInterval(progressInterval)
+    
+    if (res.code === 200 && res.data) {
+      uploadProgress.value = 100
+      form.posterUrl = res.data.url
+      ElMessage.success('海报上传成功')
+      
+      // 延迟重置进度条
+      setTimeout(() => {
+        uploading.value = false
+        uploadProgress.value = 0
+      }, 1000)
+    } else {
+      throw new Error(res.message || '上传失败')
+    }
+  } catch (error) {
+    uploading.value = false
+    uploadProgress.value = 0
+    console.error('上传失败:', error)
+    ElMessage.error('上传失败: ' + (error.message || '未知错误'))
+  }
+}
+
+/**
+ * 预览海报大图
+ */
+const previewPoster = () => {
+  if (form.posterUrl) {
+    showPreview.value = true
+  }
+}
+
+/**
+ * 删除海报
+ */
+const removePoster = () => {
+  ElMessageBox.confirm('确定要删除海报吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    form.posterUrl = ''
+    ElMessage.success('已删除海报')
+  }).catch(() => {
+    // 用户取消删除
+  })
+}
 </script>
 
 <style scoped lang="scss">
@@ -304,5 +474,118 @@ const handleCancel = () => {
 
 .text-center {
   text-align: center;
+}
+
+// ==================== 海报上传样式 ====================
+
+.poster-upload-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.url-input-section {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.upload-section {
+  margin-top: 0;
+  width: 100%;
+}
+
+.poster-uploader {
+  :deep(.el-upload) {
+    width: 100%;
+  }
+
+  :deep(.el-upload-dragger) {
+    width: 100%;
+    height: 240px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    background-color: #fafafa;
+    transition: all 0.3s;
+    padding: 0;
+
+    &:hover {
+      border-color: #409eff;
+      background-color: #f0f9ff;
+    }
+  }
+}
+
+.upload-placeholder {
+  text-align: center;
+  
+  .upload-icon {
+    color: #8b5cf6;
+    margin-bottom: 12px;
+  }
+  
+  .upload-text {
+    font-size: 14px;
+    color: #374151;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  
+  .upload-hint {
+    font-size: 12px;
+    color: #9ca3af;
+  }
+}
+
+.image-preview {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background-color: #f9fafb;
+  }
+  
+  .image-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    
+    &:hover {
+      opacity: 1;
+    }
+    
+    .el-icon {
+      color: #fff;
+      cursor: pointer;
+      font-size: 24px;
+      transition: transform 0.2s;
+      
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+  }
+}
+
+.poster-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
 }
 </style>

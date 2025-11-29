@@ -97,6 +97,11 @@
                   <el-dropdown-item command="edit">编辑</el-dropdown-item>
                   <el-dropdown-item v-if="row.activityStatus === 0" command="publish">发布</el-dropdown-item>
                   <el-dropdown-item v-if="row.activityStatus === 1" command="cancel">取消</el-dropdown-item>
+                  <el-dropdown-item v-if="row.activityStatus === 3" command="qrcode" divided>
+                    <el-icon><Grid /></el-icon>
+                    签到二维码
+                  </el-dropdown-item>
+                  <el-dropdown-item command="registrations">报名列表</el-dropdown-item>
                   <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -125,7 +130,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Grid } from '@element-plus/icons-vue'
 import StatCard from '@/components/StatCard.vue'
 import {
   getActivityList,
@@ -220,6 +225,12 @@ const handleAction = async (command, row) => {
       break
     case 'cancel':
       await handleCancel(row)
+      break
+    case 'qrcode':
+      router.push(`/activities/${row.id}/checkin-qrcode`)
+      break
+    case 'registrations':
+      router.push(`/registrations?activityId=${row.id}`)
       break
     case 'delete':
       await handleDelete(row)

@@ -43,6 +43,15 @@
         </select>
         
         <button class="btn-primary" @click="handleSearch">查询</button>
+        
+        <el-button 
+          v-if="activityId"
+          type="success"
+          @click="showQRCode"
+          :icon="Grid"
+        >
+          签到二维码
+        </el-button>
       </div>
     </div>
 
@@ -109,9 +118,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Grid } from '@element-plus/icons-vue'
 import { getRegistrationList, checkInStudent } from '@/api/registration'
 import { getActivityList } from '@/api/activity'
+
+const router = useRouter()
+const route = useRoute()
 
 const loading = ref(false)
 const searchQuery = ref('')
@@ -125,9 +139,19 @@ const registrations = ref([])
 const activities = ref([])
 
 onMounted(() => {
+  // 从路由参数获取活动ID
+  if (route.query.activityId) {
+    activityId.value = Number(route.query.activityId)
+  }
+  
   loadActivities()
   loadRegistrations()
 })
+
+const showQRCode = () => {
+  if (!activityId.value) return
+  router.push(`/activities/${activityId.value}/checkin-qrcode`)
+}
 
 const loadActivities = async () => {
   try {

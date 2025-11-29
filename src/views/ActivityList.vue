@@ -60,8 +60,8 @@
 
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <span class="tag" :class="getStatusClass(row.activityStatus)">
-              {{ row.activityStatusName }}
+            <span class="tag" :class="getStatusClass(row)">
+              {{ getStatusText(row) }}
             </span>
           </template>
         </el-table-column>
@@ -122,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
@@ -145,10 +145,20 @@ const pageSize = ref(10)
 const total = ref(0)
 const activities = ref([])
 const stats = ref({})
+const now = ref(new Date())
+let timer = null
 
 onMounted(() => {
   loadActivities()
   loadStats()
+  // 每分钟更新一次时间
+  timer = setInterval(() => {
+    now.value = new Date()
+  }, 60000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 
 const loadActivities = async () => {
@@ -284,7 +294,16 @@ const handleDelete = async (row) => {
   }
 }
 
-const getStatusClass = (status) => {
+const getStatusClass = (row) => {
+  const status = row.activityStatus
+  if (status === 1) {
+    const regStartTime = new Date(row.registrationStartTime)
+    if (now.value < regStartTime) {
+      return 'tag-yellow' // 未开始报名，用黄色
+    }
+    return 'tag-green' // 报名中，用绿色
+  }
+  
   const statusMap = {
     0: 'tag-gray',   // 未发布
     1: 'tag-green',  // 报名中
@@ -294,6 +313,30 @@ const getStatusClass = (status) => {
     5: 'tag-red'     // 已取消
   }
   return statusMap[status] || 'tag-gray'
+}
+
+const getStatusText = (row) => {
+  const status = row.activityStatus
+  if (status === 1) {
+    const regStartTime = new Date(row.registrationStartTime)
+    if (now.value < regStartTime) {
+      return '未开始报名'
+    }
+    return '报名中'
+  }
+  
+  // 如果后端有返回名称，优先使用后端的（除了状态1）
+  if (row.activityStatusName) return row.activityStatusName
+  
+  const statusMap = {
+    0: '未发布',
+    1: '报名中',
+    2: '报名结束',
+    3: '进行中',
+    4: '已结束',
+    5: '已取消'
+  }
+  return statusMap[status] || '未知'
 }
 
 const formatTimeRange = (start, end) => {

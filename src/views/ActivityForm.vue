@@ -140,6 +140,20 @@
               </el-input>
             </div>
 
+            <!-- AI生成按钮 -->
+            <div class="ai-generate-section">
+              <el-button 
+                type="primary" 
+                :icon="MagicStick"
+                :loading="aiGenerating"
+                @click="handleAIGenerate"
+                :disabled="!canGenerateAI"
+              >
+                {{ aiGenerating ? 'AI生成中...' : 'AI生成海报' }}
+              </el-button>
+              <span class="ai-hint">根据活动信息自动生成海报</span>
+            </div>
+
             <!-- 方式二: 上传图片文件 -->
             <div class="upload-section">
               <el-upload
@@ -207,9 +221,9 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Link, ZoomIn, Delete } from '@element-plus/icons-vue'
+import { Plus, Link, ZoomIn, Delete, MagicStick } from '@element-plus/icons-vue'
 import { getActivityTypes } from '@/api/activityType'
-import { createActivity, updateActivity, getActivityDetail } from '@/api/activity'
+import { createActivity, updateActivity, getActivityDetail, generateAIPoster } from '@/api/activity'
 import { uploadFile } from '@/api/file'
 
 const route = useRoute()
@@ -223,8 +237,15 @@ const activityTypes = ref([])
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const showPreview = ref(false)
+const aiGenerating = ref(false)  // AI生成中状态
+const aiGeneratedUrl = ref('')   // AI生成的图片URL,用于跟踪
 
 const isEdit = computed(() => !!route.params.id)
+
+// 判断是否可以生成AI海报
+const canGenerateAI = computed(() => {
+  return form.activityName && form.activityType && !aiGenerating.value
+})
 
 const form = reactive({
   id: null,
@@ -358,6 +379,9 @@ const handleFileChange = async (file) => {
     return
   }
   
+  // 清除AI生成的URL标记(用户手动上传优先)
+  aiGeneratedUrl.value = ''
+  
   // 开始上传
   await uploadPosterFile(rawFile)
 }
@@ -446,6 +470,97 @@ const removePoster = () => {
   }).catch(() => {
     // 用户取消删除
   })
+}
+
+// ==================== AI生成海报相关方法 ====================
+
+/**
+ * 处理AI生成海报
+ */
+const handleAIGenerate = async () => {
+  if (!form.activityName) {
+    ElMessage.warning('请先填写活动名称')
+    return
+  }
+  
+  if (!form.activityType) {
+    ElMessage.warning('请先选择活动类型')
+    return
+  }
+
+  try {
+    aiGenerating.value = true
+    
+    // 获取活动类型名称
+    const activityTypeName = activityTypes.value.find(
+      t => t.typeCode === form.activityType
+    )?.typeName || ''
+    
+    // 构造请求数据
+    const generateDTO = {
+      activityName: form.activityName,
+      activityDescription: form.activityDescription || '',
+      location: form.location || '',
+      activityTypeName: activityTypeName,
+      startTime: form.startTime ? formatDateTime(form.startTime) : '',
+      stylePrompt: '' // 可选的风格提示词
+    }
+    
+    // 调用AI生成接口
+    const res = await generateAIPoster(generateDTO)
+    
+    if (res.code === 200 && res.data) {
+      const { imageBase64 } = res.data
+      
+      // 将Base64转换为Blob
+      const blob = base64ToBlob(imageBase64)
+      
+      // 创建File对象
+      const file = new File([blob], `ai-poster-${Date.now()}.png`, { 
+        type: 'image/png' 
+      })
+      
+      // 调用上传接口
+      await uploadPosterFile(file)
+      
+      // 记录AI生成的URL
+      aiGeneratedUrl.value = form.posterUrl
+      
+      ElMessage.success('AI海报生成成功')
+    }
+  } catch (error) {
+    console.error('AI生成失败:', error)
+    ElMessage.error('AI生成失败: ' + (error.message || '未知错误'))
+  } finally {
+    aiGenerating.value = false
+  }
+}
+
+/**
+ * 将Base64字符串转换为Blob对象
+ */
+const base64ToBlob = (base64String) => {
+  // 处理data:image/png;base64,前缀
+  const parts = base64String.split(',')
+  const contentType = parts[0].match(/:(.*?);/)?.[1] || 'image/png'
+  const raw = window.atob(parts[1] || parts[0])
+  const rawLength = raw.length
+  const uInt8Array = new Uint8Array(rawLength)
+  
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i)
+  }
+  
+  return new Blob([uInt8Array], { type: contentType })
+}
+
+/**
+ * 格式化日期时间为后端需要的格式
+ */
+const formatDateTime = (dateTimeString) => {
+  if (!dateTimeString) return ''
+  // 后端需要格式: "2024-09-15 14:00"
+  return dateTimeString.replace('T', ' ').substring(0, 16)
 }
 </script>
 
@@ -587,5 +702,17 @@ const removePoster = () => {
   margin-top: 12px;
   display: flex;
   gap: 8px;
+}
+
+.ai-generate-section {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .ai-hint {
+    font-size: 13px;
+    color: #6b7280;
+  }
 }
 </style>

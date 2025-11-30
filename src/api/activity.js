@@ -95,3 +95,14 @@ export function getActivityStats() {
         params: { pageNum: 1, pageSize: 1000 }
     })
 }
+
+/**
+ * AI生成活动海报
+ */
+export function generateAIPoster(data) {
+    return request({
+        url: '/file/ai/generate-poster',
+        method: 'post',
+        data
+    })
+}

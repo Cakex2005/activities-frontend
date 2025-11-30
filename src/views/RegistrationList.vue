@@ -58,7 +58,12 @@
     <!-- 报名列表表格 -->
     <div class="card">
       <el-table :data="registrations" v-loading="loading" style="width: 100%">
-        <el-table-column prop="activityName" label="活动名称" min-width="200" />
+        <el-table-column label="活动名称" min-width="200">
+          <template #default="{ row }">
+            <span v-if="row.activityName">{{ row.activityName }}</span>
+            <el-tag v-else type="info" size="small">活动已删除</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="studentName" label="学生姓名" width="120" />
         <el-table-column prop="studentPhone" label="手机号" width="140" />
         <el-table-column label="报名状态" width="100">
@@ -167,15 +172,31 @@ const loadActivities = async () => {
 const loadRegistrations = async () => {
   loading.value = true
   try {
+    // 根据输入内容智能选择搜索字段
+    let studentName = undefined
+    let studentPhone = undefined
+    
+    if (searchQuery.value) {
+      // 如果是11位纯数字且以1开头，判定为完整手机号，使用手机号精确搜索
+      if (/^1[3-9]\d{9}$/.test(searchQuery.value)) {
+        studentPhone = searchQuery.value
+      } else {
+        // 其他情况（包括非11位纯数字、姓名等）都使用姓名模糊搜索
+        studentName = searchQuery.value
+      }
+    }
+    
     const params = {
       pageNum: currentPage.value,
       pageSize: pageSize.value,
       activityId: activityId.value || undefined,
-      studentName: searchQuery.value || undefined,
-      studentPhone: searchQuery.value || undefined,
+      studentName: studentName,
+      studentPhone: studentPhone,
       registrationStatus: statusFilter.value || undefined,
       checkInStatus: checkInFilter.value || undefined
     }
+    
+    console.log('查询参数:', params)
     
     const res = await getRegistrationList(params)
     if (res.code === 200) {

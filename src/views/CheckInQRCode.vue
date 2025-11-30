@@ -9,7 +9,6 @@
     </div>
 
     <div class="card">
-      <!-- 活动信息 -->
       <div v-if="activityInfo" class="activity-info">
         <h3>{{ activityInfo.activityName }}</h3>
         <div class="info-row">
@@ -24,7 +23,6 @@
 
       <el-divider />
 
-      <!-- 二维码展示区 -->
       <div class="qrcode-display">
         <div v-if="loading" class="loading-container">
           <el-icon class="is-loading" :size="50"><Loading /></el-icon>
@@ -32,21 +30,16 @@
         </div>
         
         <div v-else-if="qrCodeData.qrCodeImage" class="qrcode-container" ref="qrcodeContainer">
-          <img 
-            :src="qrCodeData.qrCodeImage" 
-            alt="签到二维码"
-            class="qrcode-image"
-          />
+          <img :src="qrCodeData.qrCodeImage" alt="签到二维码" class="qrcode-image" />
           
           <div class="qrcode-hint">
             <el-icon><Cellphone /></el-icon>
             <span>请使用微信或浏览器扫码签到</span>
           </div>
 
-          <!-- 倒计时 -->
           <div class="countdown">
             <el-tag 
-              :type="remainingTime > 300 ? 'success' : (remainingTime > 60 ? 'warning' : 'danger')" 
+              :type="remainingTime > 300 ? 'success' : (remainingTime > 60 ? 'warning' : 'danger')"
               size="large"
               effect="dark"
             >
@@ -55,21 +48,11 @@
             </el-tag>
           </div>
 
-          <!-- 操作按钮 -->
           <div class="action-buttons">
-            <el-button 
-              type="primary" 
-              :loading="loading"
-              @click="refreshQRCode"
-              :icon="Refresh"
-            >
+            <el-button type="primary" :loading="loading" @click="refreshQRCode" :icon="Refresh">
               刷新二维码
             </el-button>
-            
-            <el-button 
-              @click="toggleFullscreen"
-              :icon="isFullscreen ? 'FullScreen' : 'FullScreen'"
-            >
+            <el-button @click="toggleFullscreen">
               {{ isFullscreen ? '退出全屏' : '全屏展示' }}
             </el-button>
           </div>
@@ -84,7 +67,6 @@
 
       <el-divider />
 
-      <!-- 实时统计 -->
       <div class="stats-section">
         <h4>实时签到统计</h4>
         <div class="stats-grid">
@@ -111,66 +93,38 @@
           </div>
         </div>
         
-        <el-progress 
-          :percentage="stats.checkInRate" 
-          :color="progressColor"
-          :stroke-width="12"
-        />
+        <el-progress :percentage="stats.checkInRate" :color="progressColor" :stroke-width="12" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { 
-  Back, Clock, Location, Loading, Cellphone, Timer, Refresh, 
-  User, CircleCheck, TrendCharts 
-} from '@element-plus/icons-vue'
+import { Back, Clock, Location, Loading, Cellphone, Timer, Refresh, User, CircleCheck, TrendCharts } from '@element-plus/icons-vue'
 import { generateCheckInQRCode, getRegistrationStats } from '@/api/registration'
 import { getActivityDetail } from '@/api/activity'
-import QRCode from 'qrcode'
 
 const route = useRoute()
 const router = useRouter()
-
 const activityId = route.params.id
 const qrcodeContainer = ref(null)
 
-// 数据状态
 const loading = ref(false)
 const activityInfo = ref(null)
-const qrCodeData = ref({
-  qrCodeImage: '',
-  qrContent: '',
-  checkInToken: '',
-  expiresIn: 1800
-})
-
-// H5访问地址 - 从后端自动获取
-const h5BaseUrl = ref('')
-const backendIp = ref('')
-
+const qrCodeData = ref({ qrCodeImage: '', qrContent: '', checkInToken: '', expiresIn: 1800 })
 const remainingTime = ref(1800)
 const isFullscreen = ref(false)
+const stats = ref({ totalRegistrations: 0, checkedInCount: 0, checkInRate: 0 })
 
-const stats = ref({
-  totalRegistrations: 0,
-  checkedInCount: 0,
-  checkInRate: 0
-})
-
-// 定时器
 let countdownTimer = null
 let statsTimer = null
 
-// ==================== 初始化 ====================
-
 onMounted(async () => {
   await loadActivityInfo()
-  await generateQRCode()  // 生成二维码时会自动获取IP
+  await generateQRCode()
   startStatsPolling()
 })
 
@@ -179,82 +133,27 @@ onUnmounted(() => {
   clearInterval(statsTimer)
 })
 
-// ==================== 活动信息 ====================
-
 const loadActivityInfo = async () => {
   try {
     const res = await getActivityDetail(activityId)
-    if (res.code === 200) {
-      activityInfo.value = res.data
-    }
+    if (res.code === 200) activityInfo.value = res.data
   } catch (error) {
     ElMessage.error('加载活动信息失败')
   }
 }
 
-// ==================== 二维码生成 ====================
-
 const generateQRCode = async () => {
   loading.value = true
   try {
-    // 1. 调用后端接口获取 Token（不传baseUrl，让后端使用默认值）
-    const res = await generateCheckInQRCode(activityId, null)
+    const currentUrl = new URL(window.location.href)
+    const h5BaseUrl = `${currentUrl.protocol}//${currentUrl.hostname}:5174`
+    const res = await generateCheckInQRCode(activityId, h5BaseUrl)
     
-    if (res.code === 200 && res.data.qrContent) {
-      // 2. 从后端返回的 qrContent 中提取服务器地址
-      // 后端返回格式：http://192.168.1.100:8080/h5/checkin?token=xxx
-      const urlMatch = res.data.qrContent.match(/^(https?:\/\/[^\/]+)/)
-      
-      if (urlMatch && urlMatch[1]) {
-        // 提取到的是完整的后端地址，例如: http://192.168.1.100:8080
-        const backendBaseUrl = urlMatch[1]
-        
-        // 从后端地址中提取IP和端口
-        const ipPortMatch = backendBaseUrl.match(/https?:\/\/([^:]+):?(\d*)/)
-        if (ipPortMatch) {
-          backendIp.value = ipPortMatch[1]  // IP地址
-          const backendPort = ipPortMatch[2] || '8080'  // 后端端口
-          
-          // 构造H5访问地址（H5端口是5174）
-          h5BaseUrl.value = `http://${backendIp.value}:5174`
-          
-          console.log('从后端获取到IP:', backendIp.value)
-          console.log('后端地址:', backendBaseUrl)
-          console.log('H5地址:', h5BaseUrl.value)
-          
-          // 3. 重新构造二维码URL（使用H5地址 + token）
-          const targetUrl = `${h5BaseUrl.value}/#/checkin?token=${res.data.checkInToken}`
-          
-          console.log('生成二维码URL:', targetUrl)
-          
-          // 4. 使用前端库生成二维码图片
-          const qrImage = await QRCode.toDataURL(targetUrl, {
-            width: 400,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#ffffff'
-            }
-          })
-          
-          qrCodeData.value = {
-            ...res.data,
-            qrCodeImage: qrImage,
-            qrContent: targetUrl
-          }
-          
-          remainingTime.value = res.data.expiresIn
-          startCountdown()
-          
-          if (!countdownTimer) {
-            ElMessage.success('二维码生成成功')
-          }
-        } else {
-          throw new Error('无法解析后端地址')
-        }
-      } else {
-        throw new Error('后端未返回有效的URL')
-      }
+    if (res.code === 200) {
+      qrCodeData.value = res.data
+      remainingTime.value = res.data.expiresIn
+      startCountdown()
+      if (!countdownTimer) ElMessage.success('二维码生成成功')
     }
   } catch (error) {
     console.error('生成二维码失败:', error)
@@ -269,28 +168,16 @@ const refreshQRCode = async () => {
   ElMessage.success('二维码已刷新')
 }
 
-// ==================== 倒计时 ====================
-
 const startCountdown = () => {
   clearInterval(countdownTimer)
-  
   countdownTimer = setInterval(() => {
     remainingTime.value--
-    
     if (remainingTime.value <= 0) {
       clearInterval(countdownTimer)
-      ElMessage.warning({
-        message: '二维码已过期，请刷新',
-        duration: 5000
-      })
+      ElMessage.warning({ message: '二维码已过期，请刷新', duration: 5000 })
     }
-    
-    // 提前30秒提醒
     if (remainingTime.value === 30) {
-      ElMessage.warning({
-        message: '二维码即将过期，建议刷新',
-        duration: 3000
-      })
+      ElMessage.warning({ message: '二维码即将过期，建议刷新', duration: 3000 })
     }
   }, 1000)
 }
@@ -300,8 +187,6 @@ const formattedTime = computed(() => {
   const seconds = remainingTime.value % 60
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 })
-
-// ==================== 统计数据 ====================
 
 const fetchStats = async () => {
   try {
@@ -331,260 +216,64 @@ const progressColor = computed(() => {
   return '#f56c6c'
 })
 
-// ==================== 全屏功能 ====================
-
 const toggleFullscreen = () => {
   const elem = qrcodeContainer.value
-  
   if (!elem) return
   
   if (!isFullscreen.value) {
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen()
-    } else if (elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen()
-    }
+    if (elem.requestFullscreen) elem.requestFullscreen()
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen()
     isFullscreen.value = true
   } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen()
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen()
-    }
+    if (document.exitFullscreen) document.exitFullscreen()
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen()
     isFullscreen.value = false
   }
 }
 
-// 监听全屏变化
 document.addEventListener('fullscreenchange', () => {
   isFullscreen.value = !!document.fullscreenElement
 })
 
-// ==================== 工具函数 ====================
-
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', { 
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+  return date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-const goBack = () => {
-  router.back()
-}
+const goBack = () => router.back()
 </script>
 
 <style scoped lang="scss">
-.qrcode-page {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  
-  h2 {
-    font-size: 20px;
-    color: #111827;
-    margin: 0;
-    font-weight: 600;
-  }
-}
-
-.card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
-  padding: 24px;
-}
-
-// ==================== 活动信息 ====================
-
-.activity-info {
-  h3 {
-    font-size: 18px;
-    color: #111827;
-    margin: 0 0 12px 0;
-    font-weight: 600;
-  }
-
-  .info-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #6b7280;
-    font-size: 14px;
-    margin-bottom: 8px;
-
-    .el-icon {
-      color: #9ca3af;
-    }
-  }
-}
-
-
-
-// ==================== 二维码展示 ====================
-
-.qrcode-display {
-  min-height: 400px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loading-container {
-  text-align: center;
-  color: #9ca3af;
-
-  p {
-    margin-top: 16px;
-    font-size: 14px;
-  }
-}
-
-.qrcode-container {
-  text-align: center;
-  width: 100%;
-
-  &:fullscreen {
-    background: white;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 40px;
-
-    .qrcode-image {
-      width: 60vh;
-      height: 60vh;
-      max-width: 600px;
-      max-height: 600px;
-    }
-
-    .countdown {
-      .el-tag {
-        font-size: 32px;
-        padding: 16px 32px;
-      }
-    }
-  }
-}
-
-.qrcode-image {
-  width: 400px;
-  height: 400px;
-  border: 4px solid #409eff;
-  border-radius: 12px;
-  background: white;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
-  transition: transform 0.3s;
-
-  &:hover {
-    transform: scale(1.02);
-  }
-}
-
-.qrcode-hint {
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: #6b7280;
-  font-size: 14px;
-
-  .el-icon {
-    color: #409eff;
-  }
-}
-
-.countdown {
-  margin: 24px 0;
-
-  .el-tag {
-    font-size: 18px;
-    padding: 8px 16px;
-    font-weight: 500;
-  }
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.empty-state {
-  padding: 60px 0;
-}
-
-// ==================== 统计信息 ====================
-
-.stats-section {
-  h4 {
-    font-size: 16px;
-    color: #111827;
-    margin: 0 0 20px 0;
-    font-weight: 600;
-  }
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 20px;
-  border-radius: 8px;
-  background: #f9fafb;
-  transition: all 0.3s;
-
-  &:hover {
-    background: #f3f4f6;
-    transform: translateY(-2px);
-  }
-
-  .stat-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 8px;
-
-    &.success {
-      color: #67c23a;
-    }
-
-    &.primary {
-      color: #409eff;
-    }
-  }
-
-  .stat-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    font-size: 14px;
-    color: #6b7280;
-
-    .el-icon {
-      font-size: 16px;
-    }
-  }
-}
+.qrcode-page { max-width: 900px; margin: 0 auto; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.page-header h2 { font-size: 20px; color: #111827; margin: 0; font-weight: 600; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); padding: 24px; }
+.activity-info h3 { font-size: 18px; color: #111827; margin: 0 0 12px 0; font-weight: 600; }
+.activity-info .info-row { display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 14px; margin-bottom: 8px; }
+.activity-info .info-row .el-icon { color: #9ca3af; }
+.qrcode-display { min-height: 400px; display: flex; align-items: center; justify-content: center; }
+.loading-container { text-align: center; color: #9ca3af; }
+.loading-container p { margin-top: 16px; font-size: 14px; }
+.qrcode-container { text-align: center; width: 100%; }
+.qrcode-image { width: 400px; height: 400px; border: 4px solid #409eff; border-radius: 12px; background: white; padding: 20px; box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2); transition: transform 0.3s; }
+.qrcode-image:hover { transform: scale(1.02); }
+.qrcode-hint { margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; color: #6b7280; font-size: 14px; }
+.qrcode-hint .el-icon { color: #409eff; }
+.countdown { margin: 24px 0; }
+.countdown .el-tag { font-size: 18px; padding: 8px 16px; font-weight: 500; }
+.action-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
+.empty-state { padding: 60px 0; }
+.stats-section h4 { font-size: 16px; color: #111827; margin: 0 0 20px 0; font-weight: 600; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-item { text-align: center; padding: 20px; border-radius: 8px; background: #f9fafb; transition: all 0.3s; }
+.stat-item:hover { background: #f3f4f6; transform: translateY(-2px); }
+.stat-item .stat-value { font-size: 32px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+.stat-item .stat-value.success { color: #67c23a; }
+.stat-item .stat-value.primary { color: #409eff; }
+.stat-item .stat-label { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 14px; color: #6b7280; }
+.stat-item .stat-label .el-icon { font-size: 16px; }
+.qrcode-container:fullscreen { background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; }
+.qrcode-container:fullscreen .qrcode-image { width: 60vh; height: 60vh; max-width: 600px; max-height: 600px; }
+.qrcode-container:fullscreen .countdown .el-tag { font-size: 32px; padding: 16px 32px; }
 </style>

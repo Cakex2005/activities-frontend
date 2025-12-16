@@ -340,6 +340,16 @@ const loadActivityDetail = async () => {
   }
 }
 
+/**
+ * 将时间字符串统一为分钟级（去掉秒和毫秒）
+ * 例如：2025-12-16T14:30:45 → 2025-12-16T14:30:00
+ */
+const normalizeTimeToMinute = (timeStr) => {
+  if (!timeStr) return timeStr
+  // 替换秒部分为00
+  return timeStr.replace(/:\d{2}(\.\d{3})?$/, ':00')
+}
+
 const handleSubmit = async () => {
   if (!formRef.value) return
   
@@ -348,8 +358,17 @@ const handleSubmit = async () => {
     
     submitting.value = true
     try {
+      // 统一所有时间字段到分钟级
+      const formData = {
+        ...form,
+        startTime: normalizeTimeToMinute(form.startTime),
+        endTime: normalizeTimeToMinute(form.endTime),
+        registrationStartTime: normalizeTimeToMinute(form.registrationStartTime),
+        registrationEndTime: normalizeTimeToMinute(form.registrationEndTime)
+      }
+      
       const apiMethod = isEdit.value ? updateActivity : createActivity
-      const res = await apiMethod(form)
+      const res = await apiMethod(formData)
       
       if (res.code === 200) {
         ElMessage.success(isEdit.value ? '更新成功' : '创建成功')

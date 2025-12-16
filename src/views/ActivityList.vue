@@ -97,7 +97,7 @@
                   <el-dropdown-item command="edit">编辑</el-dropdown-item>
                   <el-dropdown-item v-if="row.activityStatus === 0" command="publish">发布</el-dropdown-item>
                   <el-dropdown-item v-if="row.activityStatus === 1" command="cancel">取消</el-dropdown-item>
-                  <el-dropdown-item v-if="row.activityStatus === 3" command="qrcode" divided>
+                  <el-dropdown-item v-if="isCheckInTime(row)" command="qrcode" divided>
                     <el-icon><Grid /></el-icon>
                     签到二维码
                   </el-dropdown-item>
@@ -153,6 +153,25 @@ const activities = ref([])
 const stats = ref({})
 const now = ref(new Date())
 let timer = null
+
+/**
+ * 判断是否在签到时间范围内
+ * 签到时间：活动开始前30分钟至活动结束后1小时
+ */
+const isCheckInTime = (activity) => {
+  if (!activity.startTime || !activity.endTime) return false
+  
+  const currentTime = new Date()
+  const startTime = new Date(activity.startTime)
+  const endTime = new Date(activity.endTime)
+  
+  // 签到开始时间：活动开始前30分钟
+  const checkInStart = new Date(startTime.getTime() - 30 * 60 * 1000)
+  // 签到结束时间：活动结束后1小时
+  const checkInEnd = new Date(endTime.getTime() + 60 * 60 * 1000)
+  
+  return currentTime >= checkInStart && currentTime <= checkInEnd
+}
 
 onMounted(() => {
   loadActivities()

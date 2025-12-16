@@ -157,8 +157,16 @@ let timer = null
 /**
  * 判断是否在签到时间范围内
  * 签到时间：活动开始前30分钟至活动结束后1小时
+ * 条件：
+ * 1. 活动不能是未发布状态（status !== 0）
+ * 2. 当前时间在签到时间范围内
  */
 const isCheckInTime = (activity) => {
+  // 未发布状态下不显示签到按钮
+  if (activity.activityStatus === 0) {
+    return false
+  }
+  
   if (!activity.startTime || !activity.endTime) return false
   
   const currentTime = new Date()

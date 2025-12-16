@@ -170,7 +170,7 @@
                   <div class="upload-hint">支持 jpg/png/gif/webp 格式，最大 50MB</div>
                 </div>
                 <div v-else class="image-preview">
-                  <img :src="form.posterUrl" alt="海报预览" />
+                  <img :src="formatImageUrl(form.posterUrl)" alt="海报预览" />
                   <div class="image-mask">
                     <el-icon :size="20" @click.stop="previewPoster"><ZoomIn /></el-icon>
                     <el-icon :size="20" @click.stop="removePoster"><Delete /></el-icon>
@@ -203,7 +203,7 @@
 
         <!-- 图片预览对话框 -->
         <el-dialog v-model="showPreview" title="海报预览" width="60%">
-          <img :src="form.posterUrl" alt="海报" style="width: 100%; display: block;" />
+          <img :src="formatImageUrl(form.posterUrl)" alt="海报" style="width: 100%; display: block;" />
         </el-dialog>
 
         <el-form-item>
@@ -225,6 +225,7 @@ import { Plus, Link, ZoomIn, Delete, MagicStick } from '@element-plus/icons-vue'
 import { getActivityTypes } from '@/api/activityType'
 import { createActivity, updateActivity, getActivityDetail, generateAIPoster } from '@/api/activity'
 import { uploadFile } from '@/api/file'
+import { formatImageUrl } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()

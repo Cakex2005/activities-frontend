@@ -42,7 +42,7 @@
           <template #default="{ row }">
             <div
               class="poster"
-              :style="{ backgroundImage: row.posterUrl ? `url(${row.posterUrl})` : 'none' }"
+              :style="{ backgroundImage: row.posterUrl ? `url(${formatImageUrl(row.posterUrl)})` : 'none' }"
             ></div>
           </template>
         </el-table-column>
@@ -139,6 +139,7 @@ import {
   cancelActivity,
   deleteActivity
 } from '@/api/activity'
+import { formatImageUrl } from '@/utils/format'
 
 const router = useRouter()
 

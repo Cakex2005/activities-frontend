@@ -119,7 +119,7 @@
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSearch"
-          @current-change="handleSearch"
+          @current-change="loadActivities"
         />
       </div>
     </div>
@@ -179,7 +179,28 @@ const loadActivities = async () => {
     const res = await getActivityList(params)
     if (res.code === 200) {
       activities.value = res.data.list || []
-      total.value = res.data.total || 0
+      
+      const currentListSize = activities.value.length
+      if (currentListSize < pageSize.value) {
+
+        total.value = (currentPage.value - 1) * pageSize.value + currentListSize
+      } else {
+
+        if (res.data.total <= pageSize.value) {
+          try {
+            const allRes = await getActivityList({ ...params, pageNum: 1, pageSize: 1000 })
+            if (allRes.code === 200 && allRes.data.list) {
+              total.value = allRes.data.list.length
+            } else {
+              total.value = Number(res.data.total) || 0
+            }
+          } catch (e) {
+            total.value = Number(res.data.total) || 0
+          }
+        } else {
+          total.value = Number(res.data.total) || 0
+        }
+      }
     }
   } catch (error) {
     console.error('加载活动列表失败:', error)
